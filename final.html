@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Emergency — Алматы | Диспетчерская + Бригадир</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Unbounded:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --bg: #eef1f6;
+  --bg2: #ffffff;
+  --bg3: #e4e9f1;
+  --border: rgba(15, 23, 42, 0.08);
+  --border2: rgba(15, 23, 42, 0.14);
+  --text: #141824;
+  --text2: #5c6578;
+  --text3: #8b95a8;
+  --accent: #d62f3c;
+  --accent2: #e63946;
+  --red: #d62f3c;
+  --yellow: #e5a832;
+  --green: #059669;
+  --black: #6b7280;
+  --blue: #2563eb;
+  --font-head: 'Unbounded', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+header {
+  height: 44px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%,100% { opacity: 1; box-shadow: 0 0 8px var(--accent); }
+  50% { opacity: 0.6; box-shadow: 0 0 16px var(--accent); }
+}
+
+.logo-text {
+  font-family: var(--font-head);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 11px;
+  color: var(--text2);
+}
+
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.live-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 1.5s infinite;
+}
+
+#clock {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: 1px;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.map-section {
+  flex: 0 0 58%;
+  position: relative;
+  border-bottom: 1px solid var(--border);
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+  background: #dce3ed;
+}
+
+.add-call-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 0 22px;
+  height: 44px;
+  border-radius: 6px;
+  font-family: var(--font-head);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s;
+  box-shadow: 0 4px 18px rgba(214,47,60,0.28);
+}
+
+.add-call-btn:hover {
+  background: #e63946;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(214,47,60,0.35);
+}
+
+.add-call-btn svg { flex-shrink: 0; }
+
+.map-legend {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  z-index: 1000;
+  background: rgba(255,255,255,0.94);
+  border: 1px solid var(--border2);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  backdrop-filter: blur(8px);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text2);
+}
+
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-line {
+  width: 10px; height: 2px;
+  flex-shrink: 0;
+  border-radius: 1px;
+}
+
+.bottom-section {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.stats-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+  gap: 14px;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.stats-row {
+  display: flex;
+  gap: 12px;
+}
+
+.stat-card {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.2s;
+}
+
+.stat-card:hover { border-color: var(--border2); }
+
+.stat-label {
+  font-size: 9px;
+  color: var(--text3);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.stat-value {
+  font-family: var(--font-head);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stat-sub {
+  font-size: 10px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+
+.stat-card.red { border-color: rgba(230,57,70,0.3); }
+.stat-card.red .stat-value { color: var(--red); }
+.stat-card.yellow { border-color: rgba(255,209,102,0.3); }
+.stat-card.yellow .stat-value { color: var(--yellow); }
+.stat-card.green { border-color: rgba(6,214,160,0.3); }
+.stat-card.green .stat-value { color: var(--green); }
+.stat-card.gray { border-color: rgba(136,136,136,0.3); }
+.stat-card.gray .stat-value { color: var(--black); }
+.stat-card.blue { border-color: rgba(77,166,255,0.25); }
+.stat-card.blue .stat-value { color: var(--blue); }
+
+.calls-panel {
+  width: 320px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.calls-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.calls-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text2);
+}
+
+.calls-count {
+  background: var(--accent);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.calls-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.calls-list::-webkit-scrollbar { width: 3px; }
+.calls-list::-webkit-scrollbar-track { background: transparent; }
+.calls-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.call-item {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.call-item:hover { background: var(--bg3); }
+
+.call-priority-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.call-info { flex: 1; min-width: 0; }
+
+.call-type {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.call-addr {
+  font-size: 10px;
+  color: var(--text2);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.call-time {
+  font-size: 10px;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  width: 480px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.12);
+}
+
+.modal-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-title {
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.modal-close:hover { color: var(--text); }
+
+.modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+
+.form-row { display: flex; gap: 12px; }
+
+.form-group { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+
+.form-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text2);
+}
+
+.form-input, .form-select, .form-textarea {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--accent);
+}
+
+.form-select option { background: var(--bg3); }
+
+.form-textarea { resize: none; height: 80px; }
+
+.priority-selector {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.priority-btn {
+  padding: 8px 4px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+
+.priority-btn:hover { border-color: var(--border2); color: var(--text); }
+.priority-btn.selected-red { background: rgba(230,57,70,0.15); border-color: var(--red); color: var(--red); }
+.priority-btn.selected-yellow { background: rgba(255,209,102,0.15); border-color: var(--yellow); color: var(--yellow); }
+.priority-btn.selected-green { background: rgba(6,214,160,0.15); border-color: var(--green); color: var(--green); }
+.priority-btn.selected-gray { background: rgba(136,136,136,0.15); border-color: var(--black); color: var(--black); }
+
+.modal-footer {
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.btn-cancel {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.5px;
+}
+
+.btn-cancel:hover { border-color: var(--border2); color: var(--text); }
+
+.btn-submit {
+  background: var(--accent);
+  border: none;
+  color: white;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.5px;
+}
+
+.btn-submit:hover { background: #e63946; }
+
+.leaflet-container { background: #dce3ed !important; }
+.leaflet-tile { filter: none; }
+
+.brigade-tooltip, .call-tooltip {
+  background: rgba(255,255,255,0.98) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: 6px !important;
+  color: var(--text) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  padding: 8px 12px !important;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12) !important;
+  white-space: nowrap;
+}
+
+.tooltip-title { font-weight: 700; margin-bottom: 3px; font-size: 12px; }
+.tooltip-status { font-size: 11px; }
+.tooltip-status.free { color: var(--green); }
+.tooltip-status.going { color: var(--yellow); }
+.tooltip-status.active { color: var(--accent2); }
+.tooltip-status.hosp { color: var(--blue); }
+.tooltip-status.break { color: var(--text2); }
+.tooltip-status.dead { color: var(--black); }
+
+.notification {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--bg2);
+  border: 1px solid var(--green);
+  color: var(--green);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 12px 24px;
+  border-radius: 8px;
+  z-index: 99999;
+  transition: transform 0.3s ease;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.1);
+  letter-spacing: 0.5px;
+}
+.notification.show { transform: translateX(-50%) translateY(0); }
+
+.main-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 24px;
+}
+.nav-tab {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-family: var(--font-head);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.nav-tab:hover { border-color: var(--border2); color: var(--text); }
+.nav-tab.active {
+  background: rgba(214,47,60,0.1);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.view-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+.view-hidden { display: none !important; }
+
+#view-brigadier {
+  overflow-y: auto;
+  padding: 20px;
+  background: var(--bg);
+}
+.brigadier-card {
+  max-width: 640px;
+  margin: 0 auto;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.1);
+}
+.brigadier-card h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-head);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.brig-label {
+  font-weight: 700;
+  display: block;
+  margin-top: 16px;
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text2);
+}
+.brig-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  margin-top: 6px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  background: var(--bg3);
+  color: var(--text);
+  outline: none;
+}
+.brig-input:focus { border-color: var(--accent); }
+.brig-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  width: 100%;
+  margin-top: 20px;
+  font-size: 12px;
+  font-family: var(--font-head);
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.brig-btn:hover { background: #e63946; }
+.brig-result {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 20px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.brig-badge {
+  background: rgba(77,166,255,0.12);
+  border: 1px solid rgba(77,166,255,0.25);
+  padding: 4px 10px;
+  border-radius: 999px;
+  display: inline-block;
+  margin: 4px 4px 0 0;
+  font-size: 11px;
+  color: var(--blue);
+}
+.brig-error {
+  color: #b91c1c;
+  background: rgba(214,47,60,0.08);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(230,57,70,0.3);
+}
+.brig-footer-note {
+  font-size: 10px;
+  text-align: center;
+  margin-top: 16px;
+  color: var(--text3);
+}
+.brig-hr { margin: 14px 0; border: none; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo-dot"></div>
+    <span class="logo-text">SMART EMERGENCY DISPATCHER</span>
+  </div>
+  <nav class="main-nav" aria-label="Разделы приложения">
+    <button type="button" class="nav-tab active" id="tab-dispatcher" data-view="dispatcher">Диспетчерская</button>
+    <button type="button" class="nav-tab" id="tab-brigadier" data-view="brigadier">Бригадир</button>
+  </nav>
+  <div class="header-right">
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      LIVE
+    </div>
+    <span style="color:var(--text3)">|</span>
+    <span>АЛМАТЫ</span>
+    <span style="color:var(--text3)">|</span>
+    <span id="clock">00:00:00</span>
+  </div>
+</header>
+
+<div id="view-dispatcher" class="view-panel">
+<main>
+  <div class="map-section">
+    <div id="map"></div>
+
+    <button class="add-call-btn" onclick="openModal()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M7 1v12M1 7h12" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      НОВЫЙ ВЫЗОВ
+    </button>
+
+    <div class="map-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#e63946;box-shadow:0 0 6px #e63946"></div>Критический (Экстренный)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ffd166;box-shadow:0 0 6px #ffd166"></div>Тяжёлый (Срочный)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#06d6a0;box-shadow:0 0 6px #06d6a0"></div>Стабильный (Неотложный)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#888"></div>Летальный (Констатация)</div>
+      <div style="height:4px;border-top:1px solid rgba(15,23,42,0.08);margin:2px 0"></div>
+      <div class="legend-item">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <rect x="1" y="1" width="12" height="12" rx="2" fill="none" stroke="#4da6ff" stroke-width="1.5"/>
+          <path d="M4 7h6M7 4v6" stroke="#4da6ff" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        Бригада скорой
+      </div>
+      <div class="legend-item">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M2 10L6 4l2 3 2-2 2 5" stroke="#ff9f43" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        ДТП
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-section">
+    <div class="stats-panel">
+      <div class="stats-row">
+        <div class="stat-card blue">
+          <div class="stat-label">Вызовов за день</div>
+          <div class="stat-value" id="stat-total">0</div>
+          <div class="stat-sub">обновляется в реальном времени</div>
+        </div>
+        <div class="stat-card" style="border-color:rgba(77,166,255,0.2)">
+          <div class="stat-label">Бригад на линии</div>
+          <div class="stat-value" style="color:var(--blue)" id="stat-brigades">12</div>
+          <div class="stat-sub">из 18 всего</div>
+        </div>
+        <div class="stat-card" style="">
+          <div class="stat-label">Среднее время</div>
+          <div class="stat-value" style="color:var(--text)">8.4<span style="font-size:13px;color:var(--text2)"> мин</span></div>
+          <div class="stat-sub">прибытие бригады</div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card red">
+          <div class="stat-label">🔴 Критических</div>
+          <div class="stat-value" id="stat-red">0</div>
+          <div class="stat-sub">экстренных сейчас</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-label">🟡 Тяжёлых</div>
+          <div class="stat-value" id="stat-yellow">0</div>
+          <div class="stat-sub">срочных сейчас</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">🟢 Стабильных</div>
+          <div class="stat-value" id="stat-green">0</div>
+          <div class="stat-sub">неотложных сейчас</div>
+        </div>
+        <div class="stat-card gray">
+          <div class="stat-label">⚫ Летальных</div>
+          <div class="stat-value" id="stat-black">0</div>
+          <div class="stat-sub">констатация</div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card" style="border-color:rgba(255,159,67,0.25)">
+          <div class="stat-label">ДТП сегодня</div>
+          <div class="stat-value" style="color:#ff9f43" id="stat-dtp">3</div>
+          <div class="stat-sub">на карте отмечены</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Свободных бригад</div>
+          <div class="stat-value" style="color:var(--green)" id="stat-free">0</div>
+          <div class="stat-sub">готовы к выезду</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Нагрузка системы</div>
+          <div class="stat-value" style="color:var(--yellow)" id="stat-load">67<span style="font-size:13px;color:var(--text2)">%</span></div>
+          <div class="stat-sub">текущая загрузка</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="calls-panel">
+      <div class="calls-header">
+        <span class="calls-title">Активные вызовы</span>
+        <span class="calls-count" id="calls-count">0</span>
+      </div>
+      <div class="calls-list" id="calls-list"></div>
+    </div>
+  </div>
+</main>
+</div>
+
+<div id="view-brigadier" class="view-panel view-hidden">
+  <div class="brigadier-card">
+    <h1>🚑 Бригадир – поиск лучшего вызова</h1>
+    <p style="font-size:11px;color:var(--text2);margin-bottom:8px;">Координаты по умолчанию — Алматы (как на карте диспетчерской).</p>
+    <label class="brig-label" for="brig-lat">📍 Ваши координаты (широта)</label>
+    <input type="number" class="brig-input" id="brig-lat" step="any" value="43.238" placeholder="например, 43.238">
+    <label class="brig-label" for="brig-lon">📍 Ваши координаты (долгота)</label>
+    <input type="number" class="brig-input" id="brig-lon" step="any" value="76.945" placeholder="например, 76.945">
+    <button type="button" class="brig-btn" id="brig-findBtn">🔍 Найти лучший вызов</button>
+    <div id="brig-resultArea" class="brig-result">
+      <strong>⚡ Результат</strong><br>
+      <span style="color:var(--text2);">Нажмите кнопку или откройте раздел после добавления вызовов в диспетчерской.</span>
+    </div>
+    <p class="brig-footer-note">Данные вызовов синхронизируются с диспетчерской (localStorage: ambulance_calls).</p>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">НОВЫЙ ВЫЗОВ</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Пол</label>
+          <select class="form-select" id="f-gender">
+            <option value="">— выберите —</option>
+            <option>Мужчина</option>
+            <option>Женщина</option>
+            <option>Не известно</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Возраст</label>
+          <input class="form-input" id="f-age" type="number" placeholder="лет" min="0" max="120">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Адрес вызова</label>
+        <input class="form-input" id="f-address" type="text" placeholder="ул. Абая 10, кв. 45">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Симптомы / описание</label>
+        <textarea class="form-textarea" id="f-symptoms" placeholder="Опишите симптомы и обстоятельства..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Категория срочности</label>
+        <div class="priority-selector">
+          <button class="priority-btn" data-priority="red" onclick="selectPriority(this)">🔴<br>Критический</button>
+          <button class="priority-btn" data-priority="yellow" onclick="selectPriority(this)">🟡<br>Тяжёлый</button>
+          <button class="priority-btn" data-priority="green" onclick="selectPriority(this)">🟢<br>Стабильный</button>
+          <button class="priority-btn" data-priority="black" onclick="selectPriority(this)">⚫<br>Летальный</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Доп. информация</label>
+        <input class="form-input" id="f-extra" type="text" placeholder="Этаж, код домофона, ориентиры...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">ОТМЕНА</button>
+      <button class="btn-submit" onclick="submitCall()">ПРИНЯТЬ ВЫЗОВ</button>
+    </div>
+  </div>
+</div>
+
+<div class="notification" id="notif"></div>
+
+<script>
+function updateClock() {
+  const now = new Date();
+  const t = [now.getHours(), now.getMinutes(), now.getSeconds()]
+    .map(n => String(n).padStart(2,'0')).join(':');
+  document.getElementById('clock').textContent = t;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+const map = L.map('map', {
+  center: [43.238, 76.945],
+  zoom: 12,
+  zoomControl: false,
+  attributionControl: false
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 18
+}).addTo(map);
+
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+const brigadeStatuses = {
+  free: { label: 'Свободен', color: '#06d6a0', cls: 'free' },
+  going: { label: 'Едет на вызов', color: '#ffd166', cls: 'going' },
+  active: { label: 'Принимает вызов', color: '#ff6b6b', cls: 'active' },
+  hosp: { label: 'Госпитализация', color: '#4da6ff', cls: 'hosp' },
+  lunch: { label: 'Обед / Ужин', color: '#888', cls: 'break' }
+};
+
+const brigades = [
+  { id: 'Б-01', lat: 43.255, lng: 76.930, status: 'free' },
+  { id: 'Б-02', lat: 43.248, lng: 76.958, status: 'going' },
+  { id: 'Б-03', lat: 43.232, lng: 76.920, status: 'active' },
+  { id: 'Б-04', lat: 43.221, lng: 76.965, status: 'free' },
+  { id: 'Б-05', lat: 43.268, lng: 76.975, status: 'hosp' },
+  { id: 'Б-06', lat: 43.240, lng: 76.990, status: 'lunch' },
+  { id: 'Б-07', lat: 43.210, lng: 76.935, status: 'free' },
+  { id: 'Б-08', lat: 43.258, lng: 76.910, status: 'going' },
+  { id: 'Б-09', lat: 43.235, lng: 76.948, status: 'free' },
+  { id: 'Б-10', lat: 43.244, lng: 76.972, status: 'active' },
+  { id: 'Б-11', lat: 43.228, lng: 76.907, status: 'free' },
+  { id: 'Б-12', lat: 43.262, lng: 76.952, status: 'hosp' },
+];
+
+const calls = [
+  { id: 'В-001', lat: 43.250, lng: 76.942, priority: 'red', type: 'Инфаркт', address: 'ул. Абая 14', time: '09:12' },
+  { id: 'В-002', lat: 43.238, lng: 76.930, priority: 'yellow', type: 'Перелом', address: 'пр. Достык 88', time: '09:34' },
+  { id: 'В-003', lat: 43.225, lng: 76.960, priority: 'green', type: 'Температура', address: 'ул. Толе би 22', time: '09:51' },
+  { id: 'В-004', lat: 43.260, lng: 76.970, priority: 'red', type: 'Инсульт', address: 'мкр. Самал 2, д.18', time: '10:02' },
+  { id: 'В-005', lat: 43.243, lng: 76.955, priority: 'black', type: 'Констатация', address: 'ул. Сейфуллина 4', time: '10:14' },
+  { id: 'В-006', lat: 43.234, lng: 76.918, priority: 'yellow', type: 'ДТП — травма', address: 'пр. Аль-Фараби 77', time: '10:28' },
+];
+
+const dtpPoints = [
+  { lat: 43.245, lng: 76.938, desc: 'ДТП — столкновение 2 авто, есть пострадавшие' },
+  { lat: 43.218, lng: 76.968, desc: 'ДТП — наезд на пешехода' },
+  { lat: 43.264, lng: 76.948, desc: 'ДТП — опрокидывание ТС' },
+];
+
+const priorityColors = {
+  red: '#e63946',
+  yellow: '#ffd166',
+  green: '#06d6a0',
+  black: '#888'
+};
+
+const priorityLabels = {
+  red: '🔴 Критический (Экстренный)',
+  yellow: '🟡 Тяжёлый (Срочный)',
+  green: '🟢 Стабильный (Неотложный)',
+  black: '⚫ Летальный (Констатация)'
+};
+
+function priorityToBrigadeValue(priority) {
+  switch (priority) {
+    case 'red': return 4;
+    case 'yellow': return 3;
+    case 'green': return 2;
+    case 'black': return 1;
+    default: return 2;
+  }
+}
+function syncAmbulanceCallsFromDispatcher() {
+  const arr = allCalls.map(c => ({
+    lat: c.lat,
+    lon: c.lng,
+    address: c.address,
+    callTime: c.time,
+    value: priorityToBrigadeValue(c.priority)
+  }));
+  try {
+    localStorage.setItem('ambulance_calls', JSON.stringify(arr));
+  } catch (e) { console.warn('ambulance_calls sync', e); }
+}
+
+function makeBrigadeIcon(status) {
+  const s = brigadeStatuses[status];
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:28px;height:28px;
+      border-radius:4px;
+      border:2px solid ${s.color};
+      background:rgba(255,255,255,0.96);
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 0 8px ${s.color}55;
+      font-size:12px;font-weight:700;
+    ">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="3" width="12" height="8" rx="2" fill="${s.color}" opacity="0.15" stroke="${s.color}" stroke-width="1.2"/>
+        <path d="M4 7h6M7 4v6" stroke="${s.color}" stroke-width="1.2" stroke-linecap="round"/>
+        <rect x="2" y="9" width="2" height="2" rx="1" fill="${s.color}"/>
+        <rect x="10" y="9" width="2" height="2" rx="1" fill="${s.color}"/>
+      </svg>
+    </div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14]
+  });
+}
+
+brigades.forEach(b => {
+  const s = brigadeStatuses[b.status];
+  const marker = L.marker([b.lat, b.lng], { icon: makeBrigadeIcon(b.status) }).addTo(map);
+  marker.bindTooltip(`
+    <div class="brigade-tooltip">
+      <div class="tooltip-title">Бригада ${b.id}</div>
+      <div class="tooltip-status ${s.cls}">${s.label}</div>
+    </div>
+  `, { className: '', sticky: true, opacity: 1 });
+});
+
+calls.forEach(c => {
+  const color = priorityColors[c.priority];
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="
+      width:16px;height:16px;
+      border-radius:50%;
+      background:${color};
+      box-shadow:0 0 10px ${color}, 0 0 20px ${color}44;
+      border:2px solid rgba(15,23,42,0.18);
+      animation: callPulse 2s infinite;
+    "></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+  });
+  const marker = L.marker([c.lat, c.lng], { icon }).addTo(map);
+  marker.bindTooltip(`
+    <div class="call-tooltip">
+      <div class="tooltip-title">${c.id} — ${c.type}</div>
+      <div style="color:${color};font-size:11px;margin-bottom:3px">${priorityLabels[c.priority]}</div>
+      <div style="color:#5c6578;font-size:10px">${c.address}</div>
+      <div style="color:#8b95a8;font-size:10px">Время: ${c.time}</div>
+    </div>
+  `, { className: '', sticky: true, opacity: 1 });
+});
+
+const dtpIcon = L.divIcon({
+  className: '',
+  html: `<div style="
+    width:24px;height:24px;
+    background:rgba(255,255,255,0.96);
+    border:1.5px solid #ff9f43;
+    border-radius:4px;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 8px #ff9f4355;
+    font-size:13px;
+  ">💥</div>`,
+  iconSize: [24, 24],
+  iconAnchor: [12, 12]
+});
+
+dtpPoints.forEach(d => {
+  const marker = L.marker([d.lat, d.lng], { icon: dtpIcon }).addTo(map);
+  marker.bindTooltip(`
+    <div class="call-tooltip">
+      <div class="tooltip-title" style="color:#ff9f43">ДТП</div>
+      <div style="color:#5c6578;font-size:11px">${d.desc}</div>
+    </div>
+  `, { className: '', sticky: true, opacity: 1 });
+});
+
+let allCalls = [...calls];
+
+function updateStats() {
+  const counts = { red: 0, yellow: 0, green: 0, black: 0 };
+  allCalls.forEach(c => counts[c.priority]++);
+  document.getElementById('stat-total').textContent = allCalls.length + Math.floor(Math.random()*2 + 41);
+  document.getElementById('stat-red').textContent = counts.red;
+  document.getElementById('stat-yellow').textContent = counts.yellow;
+  document.getElementById('stat-green').textContent = counts.green;
+  document.getElementById('stat-black').textContent = counts.black;
+  const free = brigades.filter(b => b.status === 'free').length;
+  document.getElementById('stat-free').textContent = free;
+  document.getElementById('calls-count').textContent = allCalls.length;
+  const load = Math.round((1 - free / brigades.length) * 100);
+  document.getElementById('stat-load').innerHTML = load + '<span style="font-size:13px;color:var(--text2)">%</span>';
+}
+
+function renderCallsList() {
+  const list = document.getElementById('calls-list');
+  list.innerHTML = allCalls.map(c => `
+    <div class="call-item">
+      <div class="call-priority-dot" style="background:${priorityColors[c.priority]};box-shadow:0 0 6px ${priorityColors[c.priority]}"></div>
+      <div class="call-info">
+        <div class="call-type">${c.id} — ${c.type}</div>
+        <div class="call-addr">${c.address}</div>
+      </div>
+      <div class="call-time">${c.time}</div>
+    </div>
+  `).join('');
+}
+
+updateStats();
+renderCallsList();
+syncAmbulanceCallsFromDispatcher();
+
+let selectedPriority = null;
+
+function openModal() {
+  document.getElementById('modal').classList.add('open');
+  selectedPriority = null;
+  document.querySelectorAll('.priority-btn').forEach(b => b.className = 'priority-btn');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+
+function selectPriority(btn) {
+  document.querySelectorAll('.priority-btn').forEach(b => b.className = 'priority-btn');
+  selectedPriority = btn.dataset.priority;
+  btn.classList.add('selected-' + selectedPriority);
+}
+
+function submitCall() {
+  const address = document.getElementById('f-address').value.trim();
+  const gender = document.getElementById('f-gender').value;
+  const age = document.getElementById('f-age').value;
+  const symptoms = document.getElementById('f-symptoms').value.trim();
+
+  if (!address) { document.getElementById('f-address').focus(); return; }
+  if (!selectedPriority) { showNotif('⚠ Выберите категорию срочности', '#ffd166'); return; }
+
+  const now = new Date();
+  const time = [now.getHours(), now.getMinutes()].map(n => String(n).padStart(2,'0')).join(':');
+  const id = 'В-' + String(allCalls.length + 1).padStart(3,'0');
+  const typeLabel = symptoms ? symptoms.split(' ').slice(0,3).join(' ') : 'Новый вызов';
+
+  const newCall = {
+    id, priority: selectedPriority,
+    type: typeLabel,
+    address,
+    time,
+    lat: 43.22 + Math.random() * 0.06,
+    lng: 76.90 + Math.random() * 0.10
+  };
+
+  allCalls.unshift(newCall);
+
+  const color = priorityColors[selectedPriority];
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="
+      width:16px;height:16px;border-radius:50%;
+      background:${color};
+      box-shadow:0 0 10px ${color},0 0 20px ${color}44;
+      border:2px solid rgba(15,23,42,0.18);
+    "></div>`,
+    iconSize: [16,16], iconAnchor: [8,8]
+  });
+  const marker = L.marker([newCall.lat, newCall.lng], { icon }).addTo(map);
+  marker.bindTooltip(`
+    <div class="call-tooltip">
+      <div class="tooltip-title">${id} — ${typeLabel}</div>
+      <div style="color:${color};font-size:11px">${priorityLabels[selectedPriority]}</div>
+      <div style="color:#5c6578;font-size:10px">${address}</div>
+    </div>
+  `, { className: '', sticky: true, opacity: 1 });
+
+  updateStats();
+  renderCallsList();
+  syncAmbulanceCallsFromDispatcher();
+  closeModal();
+  showNotif('✓ Вызов ' + id + ' принят');
+
+  document.getElementById('f-gender').value = '';
+  document.getElementById('f-age').value = '';
+  document.getElementById('f-address').value = '';
+  document.getElementById('f-symptoms').value = '';
+  document.getElementById('f-extra').value = '';
+  selectedPriority = null;
+  document.querySelectorAll('.priority-btn').forEach(b => b.className = 'priority-btn');
+}
+
+function showNotif(msg, color) {
+  const n = document.getElementById('notif');
+  n.textContent = msg;
+  n.style.borderColor = color || 'var(--green)';
+  n.style.color = color || 'var(--green)';
+  n.classList.add('show');
+  setTimeout(() => n.classList.remove('show'), 2800);
+}
+
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+function switchAppView(view) {
+  const disp = document.getElementById('view-dispatcher');
+  const brig = document.getElementById('view-brigadier');
+  const tabD = document.getElementById('tab-dispatcher');
+  const tabB = document.getElementById('tab-brigadier');
+  if (view === 'dispatcher') {
+    disp.classList.remove('view-hidden');
+    brig.classList.add('view-hidden');
+    tabD.classList.add('active');
+    tabB.classList.remove('active');
+  } else {
+    disp.classList.add('view-hidden');
+    brig.classList.remove('view-hidden');
+    tabD.classList.remove('active');
+    tabB.classList.add('active');
+    const lat = parseFloat(document.getElementById('brig-lat').value);
+    const lon = parseFloat(document.getElementById('brig-lon').value);
+    const callsArr = brigadeLoadCalls();
+    if (callsArr.length && !isNaN(lat) && !isNaN(lon)) {
+      brigadeDisplayResult(brigadeFindBestCall(lat, lon, callsArr), lat, lon);
+    }
+  }
+  setTimeout(() => { try { map.invalidateSize(); } catch (err) {} }, 200);
+}
+document.getElementById('tab-dispatcher').addEventListener('click', () => switchAppView('dispatcher'));
+document.getElementById('tab-brigadier').addEventListener('click', () => switchAppView('brigadier'));
+
+function brigadeGetTimeLimit(value) {
+  switch (value) {
+    case 4: return 10;
+    case 3: return 15;
+    case 2: return 30;
+    case 1: return 60;
+    default: return 999;
+  }
+}
+function brigadeHaversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+function brigadeTimeToMinutes(t) {
+  const parts = t.split(':').map(Number);
+  return parts[0] * 60 + parts[1];
+}
+function brigadeMinutesToTime(min) {
+  const h = Math.floor(min / 60) % 24;
+  const m = min % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+function brigadeFindBestCall(brigadeLat, brigadeLon, callsArr) {
+  const suitable = [];
+  for (const call of callsArr) {
+    const distKm = brigadeHaversineDistance(brigadeLat, brigadeLon, call.lat, call.lon);
+    const limitMin = brigadeGetTimeLimit(call.value);
+    const travelMin = distKm * 2;
+    if (travelMin <= limitMin) {
+      const callMin = brigadeTimeToMinutes(call.callTime);
+      const arrivalMin = callMin + travelMin;
+      suitable.push({
+        ...call,
+        distanceKm: distKm,
+        travelMinutes: travelMin,
+        arrivalTime: brigadeMinutesToTime(arrivalMin),
+        deadlineMinutes: callMin + limitMin
+      });
+    }
+  }
+  if (suitable.length === 0) return null;
+  suitable.sort((a, b) => {
+    if (a.value !== b.value) return b.value - a.value;
+    return a.distanceKm - b.distanceKm;
+  });
+  return suitable[0];
+}
+function brigadeLoadCalls() {
+  const stored = localStorage.getItem('ambulance_calls');
+  if (stored) return JSON.parse(stored);
+  return [];
+}
+function brigadeDisplayResult(best, brigadeLat, brigadeLon) {
+  const div = document.getElementById('brig-resultArea');
+  if (!best) {
+    div.innerHTML = '<strong>😔 Нет подходящих вызовов</strong><br><span class="brig-error" style="display:block;margin-top:8px;">Вы не успеваете ни к одному вызову. Проверьте базу или переместитесь ближе.</span>';
+    return;
+  }
+  const deadline = brigadeMinutesToTime(best.deadlineMinutes);
+  div.innerHTML = `
+    <strong>✅ Лучший вызов</strong><br>
+    📍 <strong>${best.address}</strong><br>
+    <span class="brig-badge">🌐 Координаты: ${best.lat.toFixed(5)}, ${best.lon.toFixed(5)}</span><br>
+    🕒 Время звонка: ${best.callTime} &nbsp;| ⭐ Важность: ${best.value}<br>
+    📏 Расстояние: ${best.distanceKm.toFixed(2)} км<br>
+    ⏱️ В пути: ${best.travelMinutes.toFixed(0)} мин (30 км/ч, 1 км = 2 мин)<br>
+    ⏰ Лимит: ${brigadeGetTimeLimit(best.value)} мин (успеть до ${deadline})<br>
+    🚑 Прибытие: <strong>${best.arrivalTime}</strong><br>
+    <hr class="brig-hr">
+    <span class="brig-badge">Ваши координаты: ${brigadeLat.toFixed(5)}, ${brigadeLon.toFixed(5)}</span>
+  `;
+}
+document.getElementById('brig-findBtn').addEventListener('click', () => {
+  const lat = parseFloat(document.getElementById('brig-lat').value);
+  const lon = parseFloat(document.getElementById('brig-lon').value);
+  const div = document.getElementById('brig-resultArea');
+  if (isNaN(lat) || isNaN(lon)) {
+    div.innerHTML = '<span class="brig-error">Введите корректные координаты</span>';
+    return;
+  }
+  const callsArr = brigadeLoadCalls();
+  if (callsArr.length === 0) {
+    div.innerHTML = '<span class="brig-error">База вызовов пуста. Добавьте вызовы в диспетчерской.</span>';
+    return;
+  }
+  const best = brigadeFindBestCall(lat, lon, callsArr);
+  brigadeDisplayResult(best, lat, lon);
+});
+(function brigadierInitialResult() {
+  const lat = parseFloat(document.getElementById('brig-lat').value);
+  const lon = parseFloat(document.getElementById('brig-lon').value);
+  const callsArr = brigadeLoadCalls();
+  if (callsArr.length && !isNaN(lat) && !isNaN(lon)) {
+    const best = brigadeFindBestCall(lat, lon, callsArr);
+    brigadeDisplayResult(best, lat, lon);
+  }
+})();
+</script>
+</body>
+</html>
