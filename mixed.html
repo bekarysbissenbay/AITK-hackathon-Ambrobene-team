@@ -380,7 +380,7 @@ main {
   background: var(--bg2);
   border: 1px solid var(--border2);
   border-radius: 12px;
-  width: 480px;
+  width: 520px;
   max-width: 95vw;
   max-height: 90vh;
   overflow-y: auto;
@@ -565,7 +565,7 @@ main {
 }
 .notification.show { transform: translateX(-50%) translateY(0); }
 
-/* Навигация между экранами (index + need1/need2) */
+/* Навигация между экранами */
 .main-nav {
   display: flex;
   align-items: center;
@@ -594,7 +594,7 @@ main {
 .view-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
 .view-hidden { display: none !important; }
 
-/* Экран «Бригадир» — код из need1.html / need2.html, стили под диспетчерскую тему */
+/* Экран «Бригадир» */
 #view-brigadier {
   overflow-y: auto;
   padding: 20px;
@@ -823,7 +823,7 @@ main {
 </main>
 </div>
 
-<!-- Экран «Бригадир»: логика из need1.html / need2.html (общее хранилище ambulance_calls) -->
+<!-- Экран «Бригадир» -->
 <div id="view-brigadier" class="view-panel view-hidden">
   <div class="brigadier-card">
     <h1>🚑 Бригадир – поиск лучшего вызова</h1>
@@ -869,6 +869,19 @@ main {
         <label class="form-label">Адрес вызова</label>
         <input class="form-input" id="f-address" type="text" placeholder="ул. Абая 10, кв. 45">
       </div>
+
+      <!-- НОВЫЕ ПОЛЯ ДЛЯ КООРДИНАТ -->
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">🌐 Широта (lat)</label>
+          <input class="form-input" id="f-lat" type="number" step="any" placeholder="например, 43.250">
+        </div>
+        <div class="form-group">
+          <label class="form-label">🌐 Долгота (lon)</label>
+          <input class="form-input" id="f-lon" type="number" step="any" placeholder="например, 76.942">
+        </div>
+      </div>
+      <div style="font-size: 9px; color: var(--text3); margin-top: -8px; text-align: center;">Оставьте пустыми для случайной генерации</div>
 
       <div class="form-group">
         <label class="form-label">Симптомы / описание</label>
@@ -1150,9 +1163,23 @@ function submitCall() {
   const gender = document.getElementById('f-gender').value;
   const age = document.getElementById('f-age').value;
   const symptoms = document.getElementById('f-symptoms').value.trim();
+  const latInput = document.getElementById('f-lat').value.trim();
+  const lonInput = document.getElementById('f-lon').value.trim();
 
   if (!address) { document.getElementById('f-address').focus(); return; }
   if (!selectedPriority) { showNotif('⚠ Выберите категорию срочности', '#ffd166'); return; }
+
+  // Определяем координаты
+  let lat, lng;
+  if (latInput && lonInput && !isNaN(parseFloat(latInput)) && !isNaN(parseFloat(lonInput))) {
+    lat = parseFloat(latInput);
+    lng = parseFloat(lonInput);
+  } else {
+    // случайные координаты в пределах Алматы
+    lat = 43.20 + Math.random() * 0.08;
+    lng = 76.88 + Math.random() * 0.12;
+    showNotif('⚠ Координаты не заданы, сгенерированы случайно', '#ff9f43');
+  }
 
   const now = new Date();
   const time = [now.getHours(), now.getMinutes()].map(n => String(n).padStart(2,'0')).join(':');
@@ -1164,25 +1191,20 @@ function submitCall() {
     type: typeLabel,
     address,
     time,
-    lat: 43.22 + Math.random() * 0.06,
-    lng: 76.90 + Math.random() * 0.10
+    lat: lat,
+    lng: lng
   };
 
   allCalls.unshift(newCall);
 
-  // Add to map
+  // Добавить маркер на карту
   const color = priorityColors[selectedPriority];
   const icon = L.divIcon({
     className: '',
-    html: `<div style="
-      width:16px;height:16px;border-radius:50%;
-      background:${color};
-      box-shadow:0 0 10px ${color},0 0 20px ${color}44;
-      border:2px solid rgba(255,255,255,0.3);
-    "></div>`,
+    html: `<div style="width:16px;height:16px;border-radius:50%;background:${color};box-shadow:0 0 10px ${color},0 0 20px ${color}44;border:2px solid rgba(255,255,255,0.3);"></div>`,
     iconSize: [16,16], iconAnchor: [8,8]
   });
-  const marker = L.marker([newCall.lat, newCall.lng], { icon }).addTo(map);
+  const marker = L.marker([lat, lng], { icon }).addTo(map);
   marker.bindTooltip(`
     <div class="call-tooltip">
       <div class="tooltip-title">${id} — ${typeLabel}</div>
@@ -1197,12 +1219,14 @@ function submitCall() {
   closeModal();
   showNotif('✓ Вызов ' + id + ' принят');
 
-  // Reset form
+  // Очистка формы
   document.getElementById('f-gender').value = '';
   document.getElementById('f-age').value = '';
   document.getElementById('f-address').value = '';
   document.getElementById('f-symptoms').value = '';
   document.getElementById('f-extra').value = '';
+  document.getElementById('f-lat').value = '';
+  document.getElementById('f-lon').value = '';
   selectedPriority = null;
   document.querySelectorAll('.priority-btn').forEach(b => b.className = 'priority-btn');
 }
@@ -1224,7 +1248,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
 });
 
-// ---------- Переключение экранов: диспетчерская (index) / бригадир (need1+need2) ----------
+// Переключение экранов
 function switchAppView(view) {
   const disp = document.getElementById('view-dispatcher');
   const brig = document.getElementById('view-brigadier');
@@ -1252,7 +1276,7 @@ function switchAppView(view) {
 document.getElementById('tab-dispatcher').addEventListener('click', () => switchAppView('dispatcher'));
 document.getElementById('tab-brigadier').addEventListener('click', () => switchAppView('brigadier'));
 
-// ---------- Код из need1.html / need2.html: «Бригадир» (лучший вызов по координатам) ----------
+// Код для бригадира (лучший вызов)
 function brigadeGetTimeLimit(value) {
   switch (value) {
     case 4: return 10;
